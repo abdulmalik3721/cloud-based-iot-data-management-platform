@@ -1,15 +1,25 @@
 
 // ==========================================
 // IoT Monitoring Dashboard
-// Fetch and display sensor data from Flask
+// Multi-Sensor Analytics
 // ==========================================
 
 const REFRESH_INTERVAL = 5000;
 
+const DEVICE_COLORS = [
+    "#2563eb",
+    "#16a34a",
+    "#f97316",
+    "#9333ea",
+    "#0891b2"
+];
+
 let temperatureChart = null;
+let humidityChart = null;
+let airQualityChart = null;
 
 
-// Fetch JSON data from the Flask API
+// Fetch data from Flask API
 async function fetchAPI(endpoint) {
     const response = await fetch(endpoint, {
         cache: "no-store"
@@ -23,7 +33,7 @@ async function fetchAPI(endpoint) {
 }
 
 
-// Format timestamps for display
+// Format timestamp
 function formatTimestamp(timestamp) {
     const date = new Date(timestamp);
 
@@ -35,7 +45,7 @@ function formatTimestamp(timestamp) {
 }
 
 
-// Safely create a table cell
+// Create a safe table cell
 function createCell(value) {
     const cell = document.createElement("td");
     cell.textContent = value ?? "—";
@@ -43,7 +53,7 @@ function createCell(value) {
 }
 
 
-// Display registered sensors
+// Update sensor table
 function updateSensorTable(sensors) {
     const tableBody = document.getElementById("sensorTableBody");
 
@@ -71,13 +81,12 @@ function updateSensorTable(sensors) {
             sensor.status === "online" ? "online" : "offline";
 
         row.appendChild(statusCell);
-
         tableBody.appendChild(row);
     });
 }
 
 
-// Display recent sensor readings
+// Update recent readings table
 function updateReadingsTable(readings) {
     const tableBody = document.getElementById("readingsTableBody");
 
@@ -134,52 +143,94 @@ function updateMetrics(sensors, readings) {
 }
 
 
-// Create or update temperature chart
-function updateTemperatureChart(readings) {
+// Create or update an individual sensor metric chart
+function updateMetricChart(
+    existingChart,
+    canvasId,
+    readings,
+    metric,
+    metricLabel,
+    unit
+) {
     if (typeof Chart === "undefined") {
         console.error("Chart.js could not be loaded.");
-        return;
+        return existingChart;
     }
 
-    const orderedReadings = [...readings].reverse();
+    const orderedReadings = [...readings].sort(
+        (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+    );
 
     const labels = orderedReadings.map(reading =>
         new Date(reading.timestamp).toLocaleTimeString()
     );
 
-    const temperatures = orderedReadings.map(reading =>
-        reading.temperature
-    );
+    // Identify all connected sensor devices
+    const deviceIds = [
+        ...new Set(orderedReadings.map(reading => reading.device_id))
+    ];
 
-    const chartCanvas = document.getElementById("temperatureChart");
+    // Create one dataset for each sensor
+    const datasets = deviceIds.map((deviceId, index) => ({
+        label: deviceId,
 
-    if (!temperatureChart) {
-        temperatureChart = new Chart(chartCanvas, {
+        data: orderedReadings.map(reading =>
+            reading.device_id === deviceId
+                ? Number(reading[metric])
+                : null
+        ),
+
+        borderColor: DEVICE_COLORS[index % DEVICE_COLORS.length],
+
+        backgroundColor: DEVICE_COLORS[index % DEVICE_COLORS.length],
+
+        borderWidth: 2,
+
+        pointRadius: 3,
+
+        tension: 0.3,
+
+        spanGaps: true
+    }));
+
+    const chartCanvas = document.getElementById(canvasId);
+
+    if (!chartCanvas) {
+        console.error(`Canvas not found: ${canvasId}`);
+        return existingChart;
+    }
+
+    if (!existingChart) {
+        existingChart = new Chart(chartCanvas, {
             type: "line",
 
             data: {
                 labels: labels,
-
-                datasets: [{
-                    label: "Temperature (°C)",
-                    data: temperatures,
-                    borderColor: "#2563eb",
-                    backgroundColor: "rgba(37, 99, 235, 0.12)",
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.3
-                }]
+                datasets: datasets
             },
 
             options: {
                 responsive: true,
 
+                interaction: {
+                    mode: "index",
+                    intersect: false
+                },
+
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: "top"
+                    }
+                },
+
                 scales: {
                     y: {
-                        beginAtZero: false,
+                        beginAtZero: metric !== "temperature",
+
                         title: {
                             display: true,
-                            text: "Temperature (°C)"
+                            text: `${metricLabel} (${unit})`
                         }
                     },
 
@@ -194,10 +245,12 @@ function updateTemperatureChart(readings) {
         });
 
     } else {
-        temperatureChart.data.labels = labels;
-        temperatureChart.data.datasets[0].data = temperatures;
-        temperatureChart.update();
+        existingChart.data.labels = labels;
+        existingChart.data.datasets = datasets;
+        existingChart.update();
     }
+
+    return existingChart;
 }
 
 
@@ -212,7 +265,7 @@ function updateConnectionStatus(connected) {
 }
 
 
-// Refresh dashboard from Flask API
+// Refresh complete dashboard
 async function refreshDashboard() {
     try {
         const [sensorResponse, readingResponse] = await Promise.all([
@@ -224,9 +277,40 @@ async function refreshDashboard() {
         const readings = readingResponse.data || [];
 
         updateMetrics(sensors, readings);
+
         updateSensorTable(sensors);
+
         updateReadingsTable(readings);
-        updateTemperatureChart(readings);
+
+        // Temperature chart
+        temperatureChart = updateMetricChart(
+            temperatureChart,
+            "temperatureChart",
+            readings,
+            "temperature",
+            "Temperature",
+            "°C"
+        );
+
+        // Humidity chart
+        humidityChart = updateMetricChart(
+            humidityChart,
+            "humidityChart",
+            readings,
+            "humidity",
+            "Humidity",
+            "%"
+        );
+
+        // Air quality chart
+        airQualityChart = updateMetricChart(
+            airQualityChart,
+            "airQualityChart",
+            readings,
+            "air_quality",
+            "Air Quality",
+            "index"
+        );
 
         updateConnectionStatus(true);
 
@@ -234,7 +318,6 @@ async function refreshDashboard() {
 
     } catch (error) {
         console.error("Dashboard update failed:", error);
-
         updateConnectionStatus(false);
     }
 }
@@ -245,9 +328,15 @@ async function generateSensorReadings() {
     const button = document.getElementById("generateReadingsBtn");
     const message = document.getElementById("actionMessage");
 
+    if (!button || !message) {
+        console.error("Generate button or message element not found.");
+        return;
+    }
+
     button.disabled = true;
     button.textContent = "Generating...";
     message.textContent = "";
+    message.style.color = "";
 
     try {
         const response = await fetch("/api/readings/simulate", {
@@ -257,7 +346,9 @@ async function generateSensorReadings() {
         const result = await response.json();
 
         if (!response.ok) {
-            throw new Error(result.message || "Unable to generate readings");
+            throw new Error(
+                result.message || "Unable to generate readings"
+            );
         }
 
         message.textContent =
@@ -276,14 +367,15 @@ async function generateSensorReadings() {
 }
 
 
-// Connect button to the function
+// Connect generate button
 document
     .getElementById("generateReadingsBtn")
     .addEventListener("click", generateSensorReadings);
 
 
-// Load dashboard immediately
+// Initial dashboard loading
 refreshDashboard();
 
-// Refresh existing readings every five seconds
+
+// Refresh dashboard every five seconds
 setInterval(refreshDashboard, REFRESH_INTERVAL);

@@ -1,0 +1,119 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>IoT Monitoring Dashboard</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+    <div class="dashboard">
+
+        <header class="header">
+            <div>
+                <h1>IoT Monitoring Dashboard</h1>
+                <p>Cloud-Based IoT Data Management Platform</p>
+            </div>
+
+            <div class="connection-status">
+                <span class="status-indicator"></span>
+                System Monitoring
+            </div>
+        </header>
+
+        <section class="overview">
+            <div class="metric-card">
+                <h3>Total Sensors</h3>
+                <p id="totalSensors">0</p>
+            </div>
+
+            <div class="metric-card">
+                <h3>Online Sensors</h3>
+                <p id="onlineSensors">0</p>
+            </div>
+
+            <div class="metric-card">
+                <h3>Temperature</h3>
+                <p id="latestTemp">-- °C</p>
+            </div>
+
+            <div class="metric-card">
+                <h3>Humidity</h3>
+                <p id="latestHumidity">-- %</p>
+            </div>
+
+            <div class="metric-card">
+                <h3>Air Quality</h3>
+                <p id="latestAirQuality">--</p>
+            </div>
+        </section>
+
+        <section class="chart-section">
+            <h2>Temperature History</h2>
+            <canvas id="temperatureChart"></canvas>
+        </section>
+
+        <section class="sensor-section">
+            <h2>Connected IoT Devices</h2>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Device ID</th>
+                            <th>Name</th>
+                            <th>Location</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="sensorTableBody">
+                        <tr>
+                            <td colspan="4">Loading sensor information...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="readings-section">
+            <h2>Recent Sensor Readings</h2>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Device ID</th>
+                            <th>Temperature</th>
+                            <th>Humidity</th>
+                            <th>Air Quality</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="readingsTableBody">
+                        <tr>
+                            <td colspan="5">Loading sensor readings...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer>
+            <p>Cloud-Based IoT Data Management Platform | Portfolio Project</p>
+        </footer>
+
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+
+</body>
+</html>

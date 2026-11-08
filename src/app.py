@@ -1,19 +1,28 @@
+
 import os
+from pathlib import Path
 from urllib.parse import quote_plus
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template
 
 from src.database import db
 from src.routes import api
 
 
+# Locate the main project directory
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 # Load environment variables
-load_dotenv()
+load_dotenv(BASE_DIR / ".env")
 
 
-# Initialize Flask
-app = Flask(__name__)
+# Initialize Flask with the project-level folders
+app = Flask(
+    __name__,
+    template_folder=str(BASE_DIR / "templates"),
+    static_folder=str(BASE_DIR / "static")
+)
 
 
 # Read database configuration
@@ -33,7 +42,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 
-# Initialize database with Flask
+# Initialize database
 db.init_app(app)
 
 
@@ -41,13 +50,10 @@ db.init_app(app)
 app.register_blueprint(api, url_prefix="/api")
 
 
+# Display IoT dashboard
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({
-        "project": "Cloud-Based IoT Data Management Platform",
-        "message": "Flask application is running successfully!",
-        "status": "success"
-    })
+    return render_template("index.html")
 
 
 if __name__ == "__main__":

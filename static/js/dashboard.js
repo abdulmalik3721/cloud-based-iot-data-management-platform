@@ -240,8 +240,50 @@ async function refreshDashboard() {
 }
 
 
+// Generate new sensor readings
+async function generateSensorReadings() {
+    const button = document.getElementById("generateReadingsBtn");
+    const message = document.getElementById("actionMessage");
+
+    button.disabled = true;
+    button.textContent = "Generating...";
+    message.textContent = "";
+
+    try {
+        const response = await fetch("/api/readings/simulate", {
+            method: "POST"
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || "Unable to generate readings");
+        }
+
+        message.textContent =
+            `${result.message} Total saved: ${result.total_saved}`;
+
+        await refreshDashboard();
+
+    } catch (error) {
+        message.textContent = error.message;
+        message.style.color = "#dc2626";
+
+    } finally {
+        button.disabled = false;
+        button.textContent = "Generate Sensor Readings";
+    }
+}
+
+
+// Connect button to the function
+document
+    .getElementById("generateReadingsBtn")
+    .addEventListener("click", generateSensorReadings);
+
+
 // Load dashboard immediately
 refreshDashboard();
 
-// Refresh existing database readings every five seconds
+// Refresh existing readings every five seconds
 setInterval(refreshDashboard, REFRESH_INTERVAL);

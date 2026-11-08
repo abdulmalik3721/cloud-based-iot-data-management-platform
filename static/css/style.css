@@ -187,3 +187,31 @@ footer {
         font-size: 24px;
     }
 }
+/* Generate Sensor Readings Button */
+
+.action-button {
+    margin-top: 18px;
+    padding: 12px 20px;
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.action-button:hover {
+    background-color: #1d4ed8;
+}
+
+.action-button:disabled {
+    background-color: #94a3b8;
+    cursor: not-allowed;
+}
+
+.action-message {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #16a34a;
+}

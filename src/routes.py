@@ -1,5 +1,10 @@
 
-from flask import Blueprint, jsonify
+import csv
+import io
+
+from flask import Blueprint, jsonify, make_response
+
+from flask import request
 
 from src.database import db
 from src.models import Sensor, SensorReading
@@ -43,7 +48,6 @@ def simulate_readings():
     saved_readings = []
 
     for reading in readings:
-
         is_valid, message = validate_sensor_reading(reading)
 
         if not is_valid:
@@ -91,11 +95,23 @@ def simulate_readings():
     }), 201
 
 
+def get_readings_query(device_id=None):
+    query = SensorReading.query.join(Sensor)
+
+    if device_id:
+        query = query.filter(Sensor.device_id == device_id)
+
+    return query
+
+
 @api.route("/readings", methods=["GET"])
 def get_readings():
+    device_id = request.args.get("device_id", "").strip()
+
+    query = get_readings_query(device_id or None)
+
     readings = (
-        SensorReading.query
-        .order_by(SensorReading.timestamp.desc())
+        query.order_by(SensorReading.timestamp.desc())
         .limit(100)
         .all()
     )
@@ -103,6 +119,7 @@ def get_readings():
     return jsonify({
         "status": "success",
         "total_readings": len(readings),
+        "device_filter": device_id or "all",
         "data": [
             {
                 "device_id": reading.sensor.device_id,
@@ -114,3 +131,44 @@ def get_readings():
             for reading in readings
         ]
     })
+
+
+@api.route("/readings/export", methods=["GET"])
+def export_readings():
+    device_id = request.args.get("device_id", "").strip()
+
+    query = get_readings_query(device_id or None)
+
+    readings = (
+        query.order_by(SensorReading.timestamp.desc())
+        .all()
+    )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        "device_id",
+        "temperature",
+        "humidity",
+        "air_quality",
+        "timestamp"
+    ])
+
+    for reading in readings:
+        writer.writerow([
+            reading.sensor.device_id,
+            reading.temperature,
+            reading.humidity,
+            reading.air_quality,
+            reading.timestamp.isoformat()
+        ])
+
+    response = make_response(output.getvalue())
+
+    response.headers["Content-Type"] = "text/csv; charset=utf-8"
+    response.headers["Content-Disposition"] = (
+        'attachment; filename="sensor_readings.csv"'
+    )
+
+    return response

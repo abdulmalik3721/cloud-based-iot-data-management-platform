@@ -368,13 +368,139 @@ async function generateSensorReadings() {
 
 
 // Connect generate button
+// Generate sensor readings
 document
     .getElementById("generateReadingsBtn")
     .addEventListener("click", generateSensorReadings);
 
 
+// Filter readings when the selected device changes
+document
+    .getElementById("deviceFilter")
+    .addEventListener("change", refreshDashboard);
+
+
+// Download CSV
+document
+    .getElementById("exportCsvBtn")
+    .addEventListener("click", downloadCSV);
+
 // Initial dashboard loading
-refreshDashboard();
+
+function populateDeviceFilter(sensors) {
+    const select = document.getElementById("deviceFilter");
+
+    if (!select) return;
+
+    const selectedValue = select.value;
+
+    const deviceIds = sensors.map(sensor => sensor.device_id);
+
+    const currentIds = Array.from(select.options)
+        .slice(1)
+        .map(option => option.value);
+
+    // Rebuild options only when the device list changes
+    if (deviceIds.join(",") !== currentIds.join(",")) {
+        select.replaceChildren();
+
+        const allOption = document.createElement("option");
+        allOption.value = "";
+        allOption.textContent = "All Devices";
+        select.appendChild(allOption);
+
+        deviceIds.forEach(deviceId => {
+            const option = document.createElement("option");
+            option.value = deviceId;
+            option.textContent = deviceId;
+            select.appendChild(option);
+        });
+
+        if (deviceIds.includes(selectedValue)) {
+            select.value = selectedValue;
+        }
+    }
+}
+
+
+// Download CSV for selected device
+function downloadCSV() {
+    const select = document.getElementById("deviceFilter");
+    const selectedDevice = select ? select.value : "";
+
+    const params = new URLSearchParams();
+
+    if (selectedDevice) {
+        params.set("device_id", selectedDevice);
+    }
+
+    const query = params.toString();
+
+    window.location.href = query
+        ? `/api/readings/export?${query}`
+        : "/api/readings/export";
+}
+
+
+async function refreshDashboard() {
+    try {
+        const sensorResponse = await fetchAPI("/api/sensors");
+
+        const sensors = sensorResponse.data || [];
+
+        populateDeviceFilter(sensors);
+
+        const selectedDevice = document.getElementById("deviceFilter").value;
+
+        const readingsEndpoint = selectedDevice
+            ? `/api/readings?device_id=${encodeURIComponent(selectedDevice)}`
+            : "/api/readings";
+
+        const readingResponse = await fetchAPI(readingsEndpoint);
+
+        const readings = readingResponse.data || [];
+
+        updateMetrics(sensors, readings);
+        updateSensorTable(sensors);
+        updateReadingsTable(readings);
+
+        temperatureChart = updateMetricChart(
+            temperatureChart,
+            "temperatureChart",
+            readings,
+            "temperature",
+            "Temperature",
+            "°C"
+        );
+
+        humidityChart = updateMetricChart(
+            humidityChart,
+            "humidityChart",
+            readings,
+            "humidity",
+            "Humidity",
+            "%"
+        );
+
+        airQualityChart = updateMetricChart(
+            airQualityChart,
+            "airQualityChart",
+            readings,
+            "air_quality",
+            "Air Quality",
+            "index"
+        );
+
+        updateConnectionStatus(true);
+
+        console.log("Dashboard updated successfully.");
+
+    } catch (error) {
+        console.error("Dashboard update failed:", error);
+        updateConnectionStatus(false);
+    }
+}
+
 
 
 // Refresh dashboard every five seconds
